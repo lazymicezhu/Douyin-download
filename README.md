@@ -4,6 +4,12 @@
 
 轻量原生 iPhone 抖音下载与数据查询工具。使用 SwiftUI 开发，无第三方依赖，无需自建服务器；通过 TikHub API 获取作品和查询数据。当前应用版本为 **2.1**，界面为简体中文。
 
+## 下载安装
+
+**2.1（Build 3）**：[下载未签名 IPA](https://github.com/lazymicezhu/Douyin-download/releases/download/v2.1/DouyinLite-2.1-unsigned.ipa) · [查看 Release](https://github.com/lazymicezhu/Douyin-download/releases/tag/v2.1)
+
+需要 iPhone **iOS 17+**。IPA 未签名，需使用自己的证书和描述文件签名后安装；TikHub API Key 需自行配置。具体步骤见下方“安装与配置”。
+
 ## 功能
 
 - **视频下载**：粘贴分享文案或链接，选择接口实际返回的画质，支持 H.264 / HEVC、保存到相册和导出文件。
@@ -47,7 +53,7 @@ cd Douyin-download
 
 ## 安装与配置
 
-1. 将本地构建的未签名 IPA 导入签名工具（如全能签），使用有效证书和描述文件签名后安装；未签名 IPA 不能直接安装，安装有效期由签名决定。也可通过配置好签名的 Xcode 安装到 iPhone。
+1. 下载 [Release 中的未签名 IPA](https://github.com/lazymicezhu/Douyin-download/releases/download/v2.1/DouyinLite-2.1-unsigned.ipa)，或按上方步骤自行构建。将 IPA 导入签名工具（如全能签），使用有效证书和描述文件签名后安装；未签名 IPA 不能直接安装，安装有效期由签名决定。也可通过配置好签名的 Xcode 安装到 iPhone。
 2. 打开 **抖取 → 账户 → API Key 与配置文件**，手动填写 Key，或复制 Key 后选择“粘贴并保存”。
 3. 也可导入包含以下内容的 `.env` / `.txt` 文本文件；支持粘贴整段配置文字，无需手动删除前缀：
 

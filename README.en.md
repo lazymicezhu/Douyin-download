@@ -4,6 +4,12 @@ English · [简体中文](README.md)
 
 A lightweight native iPhone app for downloading Douyin media and querying Douyin data through TikHub. Built with SwiftUI, with no third-party dependencies or self-hosted backend. The current app version is **2.1**; the app interface is in Simplified Chinese.
 
+## Download and install
+
+**2.1 (Build 3)**: [Download unsigned IPA](https://github.com/lazymicezhu/Douyin-download/releases/download/v2.1/DouyinLite-2.1-unsigned.ipa) · [View release](https://github.com/lazymicezhu/Douyin-download/releases/tag/v2.1)
+
+Requires an iPhone running **iOS 17+**. The IPA is unsigned; sign it with your own certificate and provisioning profile before installation, then configure your own TikHub API Key. See “Install and configure” below for the steps.
+
 ## Features
 
 - **Video downloads**: Paste a share message or URL, choose from the qualities actually returned by the API, and save to Photos or export a file. Supports H.264 and HEVC sources.
@@ -47,7 +53,7 @@ This produces `build/Simulator/DouyinLite.app` without launching a simulator. Se
 
 ## Install and configure
 
-1. Import your locally built unsigned IPA into a signing tool, such as 全能签, and sign it with a valid certificate and provisioning profile before installation. An unsigned IPA cannot be installed directly; its validity depends on the signing credentials. Alternatively, install from Xcode after configuring signing.
+1. Download the [unsigned IPA from the release](https://github.com/lazymicezhu/Douyin-download/releases/download/v2.1/DouyinLite-2.1-unsigned.ipa), or build it yourself using the steps above. Import the IPA into a signing tool, such as 全能签, and sign it with a valid certificate and provisioning profile before installation. An unsigned IPA cannot be installed directly; its validity depends on the signing credentials. Alternatively, install from Xcode after configuring signing.
 2. Open **抖取 → 账户 → API Key 与配置文件** (Account → API Key and configuration). Enter your Key manually, or copy it and choose “粘贴并保存” (Paste and Save).
 3. You can also import an `.env` / `.txt` text file containing the following configuration, or paste the full configuration text without removing its prefix:
 
