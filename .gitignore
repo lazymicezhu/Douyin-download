@@ -1,0 +1,52 @@
+# Local API keys and exported configuration
+.env
+.env.*
+*.env
+!.env.example
+TikHub.txt
+
+# Build products and local API/media inspection output
+/build/
+/dist/
+DerivedData/
+.build/
+.swift-module-cache/
+*.ipa
+*.app/
+*.xcarchive/
+*.dSYM/
+*.dSYM.zip
+*.xcresult/
+*.log
+/tests/live-response.json
+
+# Xcode user settings (keep shared project and schemes)
+xcuserdata/
+*.xcuserstate
+*.xccheckout
+*.xcscmblueprint
+
+# Signing certificates and private keys
+*.p12
+*.p8
+*.pfx
+*.mobileprovision
+*.provisionprofile
+*.cer
+*.key
+*.pem
+
+# macOS, editors and Python caches
+.DS_Store
+._*
+.AppleDouble/
+.LSOverride
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
