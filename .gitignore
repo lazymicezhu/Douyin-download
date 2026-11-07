@@ -26,6 +26,9 @@ xcuserdata/
 *.xccheckout
 *.xcscmblueprint
 
+# Device pairing identity written by go-ios (contains a private key)
+selfIdentity.plist
+
 # Signing certificates and private keys
 *.p12
 *.p8
