@@ -36,7 +36,7 @@ struct APITransport: APITransporting {
         message.httpMethod = request.method
         message.timeoutInterval = min(60, max(5, request.timeout))
         message.setValue("application/json", forHTTPHeaderField: "Accept")
-        message.setValue("DouyinLite/2.1 (iOS)", forHTTPHeaderField: "User-Agent")
+        message.setValue("DouyinLite/2.4 (iOS)", forHTTPHeaderField: "User-Agent")
         if let apiKey {
             message.setValue("Bearer \(try Configuration.validatedKey(apiKey))", forHTTPHeaderField: "Authorization")
         }

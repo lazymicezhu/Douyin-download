@@ -2,11 +2,17 @@
 
 [English](README.en.md) · 简体中文
 
-轻量原生 iPhone 抖音下载与数据查询工具。使用 SwiftUI 开发，无第三方依赖，无需自建服务器；通过 TikHub API 获取作品和查询数据。当前应用版本为 **2.1**，界面为简体中文。
+轻量原生 iPhone 抖音下载与数据查询工具。使用 SwiftUI 开发，无第三方依赖，无需自建服务器；通过 TikHub API 获取作品和查询数据。当前源码版本为 **2.4（Build 7）**，界面为简体中文。
 
 ## 下载安装
 
-**2.1（Build 3）**：[下载未签名 IPA](https://github.com/lazymicezhu/Douyin-download/releases/download/v2.1/DouyinLite-2.1-unsigned.ipa) · [查看 Release](https://github.com/lazymicezhu/Douyin-download/releases/tag/v2.1)
+**已发布版本 2.1（Build 3）**：[下载未签名 IPA](https://github.com/lazymicezhu/Douyin-download/releases/download/v2.1/DouyinLite-2.1-unsigned.ipa) · [查看 Release](https://github.com/lazymicezhu/Douyin-download/releases/tag/v2.1)
+
+**源码／本地构建 2.4（Build 7）**：“我的”新增“清理已保存的照片”，只删除抖取保存到相册的项目（进入“最近删除”）；导出恢复为图片与视频文件。该版本尚未发布至 Release，可按下方步骤构建。
+
+**2.3（Build 6）**：解析作品不再弹出费用确认（报价超过 $0.01 时仍会确认）。该版本曾尝试将实况整体分享到其他 App，实测抖音不能保持实况，已在 2.4 撤回。
+
+**2.2（Build 5）**：界面重构。标签页精简为“下载 / 查询 / 我的”，费用明细与 API Key 设置并入“我的”；粘贴链接即自动解析；导出一步直达分享面板；精简结果卡片、费用确认弹窗和费用明细中的重复说明。
 
 需要 iPhone **iOS 17+**。IPA 未签名，需使用自己的证书和描述文件签名后安装；TikHub API Key 需自行配置。具体步骤见下方“安装与配置”。
 
@@ -53,8 +59,8 @@ cd Douyin-download
 
 ## 安装与配置
 
-1. 下载 [Release 中的未签名 IPA](https://github.com/lazymicezhu/Douyin-download/releases/download/v2.1/DouyinLite-2.1-unsigned.ipa)，或按上方步骤自行构建。将 IPA 导入签名工具（如全能签），使用有效证书和描述文件签名后安装；未签名 IPA 不能直接安装，安装有效期由签名决定。也可通过配置好签名的 Xcode 安装到 iPhone。
-2. 打开 **抖取 → 账户 → API Key 与配置文件**，手动填写 Key，或复制 Key 后选择“粘贴并保存”。
+1. 下载 [2.1（Build 3）Release 中的未签名 IPA](https://github.com/lazymicezhu/Douyin-download/releases/download/v2.1/DouyinLite-2.1-unsigned.ipa)，或按上方步骤自行构建当前源码版本 **2.1.1（Build 4）**。将 IPA 导入签名工具（如全能签），使用有效证书和描述文件签名后安装；未签名 IPA 不能直接安装，安装有效期由签名决定。也可通过配置好签名的 Xcode 安装到 iPhone。
+2. 打开 **抖取 → 我的 → API Key**，复制 Key 后点“从剪贴板粘贴”，或手动填写。
 3. 也可导入包含以下内容的 `.env` / `.txt` 文本文件；支持粘贴整段配置文字，无需手动删除前缀：
 
 ```dotenv
@@ -67,9 +73,9 @@ TIKHUB_API_KEY=your_tikhub_api_key
 
 ## 日常使用
 
-1. 在“下载”页粘贴完整分享文案或抖音链接，点击“获取作品”；收费请求会先显示报价，确认后执行。
+1. 在“下载”页点“粘贴”即自动解析，或手动输入后点“解析”；收费请求会先显示报价，确认后执行。
 2. 选择视频画质，或勾选图片及实况保存方式，再保存到相册或导出文件。首次保存会申请添加照片权限。
-3. “获取原画”和“链接失效？重新获取”各是一次独立请求，需要重新核对费用；同一会话内相同链接默认复用已有解析结果。
+3. 画质菜单中的“获取原画”和右上角菜单中的“重新获取链接”各是一次独立请求，需要重新核对费用；同一会话内相同链接默认复用已有解析结果。
 
 Live Photo 导出为配对的 JPEG 与 MOV；若要直接在 iPhone 相册中显示为实况，请使用“保存到相册”。合成失败时可改为导出独立素材，无需重新解析。临时素材会在切换作品或下次启动时清理，已保存和已导出的文件保留。
 

@@ -5,6 +5,18 @@ import Photos
 enum PhotoSaveMode: String, CaseIterable, Identifiable {
     case live = "实况照片", still = "仅静态图片", components = "图片＋独立视频"
     var id: String { rawValue }
+    var shortTitle: String {
+        switch self {
+        case .live: return "实况"
+        case .still: return "静图"
+        case .components: return "图＋视频"
+        }
+    }
+}
+
+struct SharePayload: Identifiable {
+    let id = UUID()
+    let urls: [URL]
 }
 
 @MainActor
@@ -13,15 +25,19 @@ final class DownloadModel: ObservableObject {
     @Published private(set) var video: VideoInfo?
     @Published private(set) var busy = false
     @Published private(set) var canCancel = false
-    @Published private(set) var status = "粘贴分享链接，获取视频、图文或实况。"
+    /// Progress text, only meaningful while `busy`.
+    @Published private(set) var status = ""
+    /// Short-lived confirmation shown as a toast after an operation completes.
+    @Published var notice: String?
     @Published var errorMessage: String?
-    @Published private(set) var exportFiles: [URL] = []
-    @Published private(set) var compatibleVideoFile: URL?
+    @Published var sharePayload: SharePayload?
     @Published private(set) var hasAPIKey = KeyStore.read() != nil
-    @Published var qualityID = "" { didSet { exportFiles = [] } }
-    @Published var selectedPhotoIDs: Set<Int> = [] { didSet { exportFiles = [] } }
-    @Published var photoMode: PhotoSaveMode = .live { didSet { exportFiles = [] } }
-    @Published var motionQualityIDs: [Int: String] = [:] { didSet { exportFiles = [] } }
+    @Published var qualityID = ""
+    @Published var selectedPhotoIDs: Set<Int> = []
+    @Published var photoMode: PhotoSaveMode = .live
+    @Published var motionQualityIDs: [Int: String] = [:]
+    /// Photos-library items this app created and has not cleaned up yet.
+    @Published private(set) var savedAssetCount = SavedAssets.load().count
     private let billing: BillingCenter
     private var operation: Task<Void, Never>?
     private let folder = FileManager.default.temporaryDirectory.appendingPathComponent("DouyinLite", isDirectory: true)
@@ -32,6 +48,7 @@ final class DownloadModel: ObservableObject {
     var selectedPhotos: [PhotoInfo] { video?.photos.filter { selectedPhotoIDs.contains($0.id) } ?? [] }
     var selectedQuality: VideoQuality? { video?.qualities.first { $0.id == qualityID } }
     var canSave: Bool { video.map { !$0.isPhotoPost || !selectedPhotoIDs.isEmpty } ?? false }
+    var hasOriginal: Bool { video?.qualities.contains { $0.id == "original" } ?? false }
 
     init(billing: BillingCenter) {
         self.billing = billing
@@ -57,7 +74,6 @@ final class DownloadModel: ObservableObject {
         try KeyStore.remove()
         hasAPIKey = false
         billing.credentialsChanged()
-        status = "密钥已移除。"
     }
 
     func resolve(refresh: Bool = false) async {
@@ -65,25 +81,24 @@ final class DownloadModel: ObservableObject {
         await perform {
             let shareURL = try DouyinShareLink.extract(from: self.input)
             if !refresh, self.lastShareURL == shareURL, self.video != nil {
-                self.status = "已使用本次会话中的结果，没有再次调用接口。"
+                self.notice = "已是当前作品，未重复查询"
                 return
             }
-            self.status = "正在核对解析费用…"
-            let data = try await self.billing.perform(APIRequest(title: refresh ? "重新获取作品链接" : "获取作品", path: "/api/v1/douyin/web/fetch_one_video_by_share_url", query: ["share_url": shareURL.absoluteString]))
+            self.status = "正在核对费用…"
+            // Parsing is cheap ($0.001) and frequent: skip the confirmation sheet unless the quote is unexpectedly high.
+            let data = try await self.billing.perform(APIRequest(title: refresh ? "重新获取作品链接" : "获取作品", path: "/api/v1/douyin/web/fetch_one_video_by_share_url", query: ["share_url": shareURL.absoluteString]),
+                                                      autoApproveUpTo: BillingCenter.autoApproveLimit)
             let result = try TikHubResponse.decode(data, status: 200)
             try Task.checkCancellation()
             try? FileManager.default.removeItem(at: self.folder)
             try FileManager.default.createDirectory(at: self.folder, withIntermediateDirectories: true)
             self.fileCache = [:]
             self.liveCache = [:]
-            self.exportFiles = []
-            self.compatibleVideoFile = nil
             self.video = result
             self.qualityID = result.qualities.first?.id ?? ""
             self.selectedPhotoIDs = Set(result.photos.map(\.id))
             self.motionQualityIDs = Dictionary(uniqueKeysWithValues: result.photos.compactMap { photo in photo.qualities.first.map { (photo.id, $0.id) } })
             self.lastShareURL = shareURL
-            self.status = result.isPhotoPost ? "已获取 \(result.photos.count) 张图片，其中 \(result.motionCount) 张含实况视频。" : "视频已就绪，默认选择最高可用画质。"
         }
     }
 
@@ -91,28 +106,29 @@ final class DownloadModel: ObservableObject {
         guard !busy, let current = video, !current.isPhotoPost else { return }
         if let original = current.qualities.first(where: { $0.id == "original" }) {
             qualityID = original.id
-            status = "已选择已获取的原画，没有重复查询。"
             return
         }
         await perform {
-            self.status = "正在核对原画费用…"
+            self.status = "正在核对费用…"
             let data = try await self.billing.perform(APIRequest(title: "获取原画视频", path: "/api/v1/douyin/web/fetch_video_high_quality_play_url", query: ["aweme_id": current.id]))
             let quality = try TikHubResponse.decodeOriginal(data, status: 200)
             try Task.checkCancellation()
             self.video?.qualities.insert(quality, at: 0)
             self.qualityID = quality.id
-            self.status = "原画链接已获取，可保存或导出。实际画质取决于上传素材。"
+            self.notice = "已获取原画"
         }
     }
 
-    func download() async {
+    /// Downloads (or reuses cached files) and opens the share sheet in one step.
+    /// `compatibleCopy` exports the original-quality video with the Photos playback marker.
+    func export(compatibleCopy: Bool = false) async {
         guard !busy else { return }
         await perform {
-            let assets = try await self.prepareAssets()
-            self.exportFiles = assets.flatMap { [$0.photo, $0.video, $0.pairedVideo].compactMap { $0 } }
-            self.status = self.photoMode == .live && assets.contains(where: { $0.pairedVideo != nil })
-                ? "实况已合成。导出为配对的图片和 MOV；要在 iPhone 中显示为实况，请用“保存到相册”。"
-                : "下载完成，可以导出到文件或分享。"
+            let assets = try await self.prepareAssets(forPhotoLibrary: compatibleCopy)
+            try Task.checkCancellation()
+            let urls = assets.flatMap { [$0.photo, $0.video, $0.pairedVideo].compactMap { $0 } }
+            guard !urls.isEmpty else { throw AppError.message("没有可导出的文件。") }
+            self.sharePayload = SharePayload(urls: urls)
         }
     }
 
@@ -128,24 +144,51 @@ final class DownloadModel: ObservableObject {
             try Task.checkCancellation()
             self.canCancel = false
             self.status = "正在保存到相册…"
+            let created = SavedAssets.Collector()
             try await PHPhotoLibrary.shared().performChanges {
                 for asset in assets {
                     if let photo = asset.photo {
                         let creation = PHAssetCreationRequest.forAsset()
                         creation.addResource(with: .photo, fileURL: photo, options: nil)
                         if let paired = asset.pairedVideo { creation.addResource(with: .pairedVideo, fileURL: paired, options: nil) }
+                        created.add(creation.placeholderForCreatedAsset?.localIdentifier)
                     }
                     if let video = asset.video {
                         let creation = PHAssetCreationRequest.forAsset()
                         creation.addResource(with: .video, fileURL: video, options: nil)
+                        created.add(creation.placeholderForCreatedAsset?.localIdentifier)
                     }
                 }
             }
-            self.exportFiles = assets.flatMap { [$0.photo, $0.video, $0.pairedVideo].compactMap { $0 } }
-            if self.selectedQuality?.id == "original", let original = self.fileCache["video:original"] {
-                self.exportFiles = [original]
+            SavedAssets.append(created.identifiers)
+            self.savedAssetCount = SavedAssets.load().count
+            self.notice = "已保存到相册"
+        }
+    }
+
+
+    /// Deletes only the Photos items this app saved (iOS asks the user to confirm; they go to Recently Deleted).
+    func cleanUpSavedPhotos() async {
+        guard !busy else { return }
+        await perform {
+            let identifiers = SavedAssets.load()
+            guard !identifiers.isEmpty else { self.notice = "没有需要清理的照片"; return }
+            let authorization = await PHPhotoLibrary.requestAuthorization(for: .readWrite)
+            guard authorization == .authorized || authorization == .limited else {
+                throw AppError.message("清理需要“完全访问”相册权限。请到系统设置开启后重试。")
             }
-            self.status = "已保存到相册。"
+            self.canCancel = false
+            self.status = "正在清理已保存的照片…"
+            let found = PHAsset.fetchAssets(withLocalIdentifiers: identifiers, options: nil)
+            if found.count > 0 {
+                try await PHPhotoLibrary.shared().performChanges {
+                    PHAssetChangeRequest.deleteAssets(found)
+                }
+            }
+            // Identifiers not found were already removed by hand; forget them too.
+            SavedAssets.remove(identifiers)
+            self.savedAssetCount = SavedAssets.load().count
+            self.notice = found.count > 0 ? "已清理 \(found.count) 项，可在“最近删除”中恢复" : "照片已不在相册中，记录已清空"
         }
     }
 
@@ -158,17 +201,19 @@ final class DownloadModel: ObservableObject {
     private func perform(_ action: @escaping @MainActor () async throws -> Void) async {
         busy = true
         canCancel = true
+        status = "正在处理…"
         errorMessage = nil
+        notice = nil
         operation = Task { @MainActor in
             do { try await action() }
-            catch is CancellationError { self.status = "已取消。" }
-            catch let error as URLError where error.code == .cancelled { self.status = "已取消。" }
-            catch let error as AppError { self.errorMessage = error.localizedDescription; self.status = "操作未完成。" }
+            catch is CancellationError { }
+            catch let error as URLError where error.code == .cancelled { }
+            catch let error as AppError { self.errorMessage = error.localizedDescription }
             catch let error as URLError {
-                self.errorMessage = error.code == .timedOut ? "连接超时，请检查网络后重试。" : "网络连接失败，请检查网络后重试。"
-                self.status = "操作未完成；不会自动重新调用接口。"
+                self.errorMessage = (error.code == .timedOut ? "连接超时" : "网络连接失败") + "，请检查网络后重试。不会自动重新调用接口。"
             }
-            catch { self.errorMessage = "处理失败：\(error.localizedDescription)"; self.status = "操作未完成。" }
+            catch { self.errorMessage = "处理失败：\(error.localizedDescription)" }
+            self.status = ""
             self.canCancel = false
             self.busy = false
             self.operation = nil
@@ -194,7 +239,7 @@ final class DownloadModel: ObservableObject {
             let local: URL
             if let cached = fileCache[cacheKey], usable(cached) { local = cached }
             else {
-                status = "正在下载所选画质…"
+                status = "正在下载视频…"
                 local = try await VideoDownloader.download(urls: quality?.urls ?? video.downloadURLs, to: folder)
                 fileCache[cacheKey] = local
             }
@@ -203,11 +248,10 @@ final class DownloadModel: ObservableObject {
                 let compatible: URL
                 if let cached = fileCache[compatibleKey], usable(cached) { compatible = cached }
                 else {
-                    status = "正在为相册设置原帧率播放标记，不改变画质…"
+                    status = "正在添加原帧率播放标记…"
                     compatible = try await VideoTimingNormalizer.prepareOriginalForPhotos(local, in: folder)
                     fileCache[compatibleKey] = compatible
                 }
-                compatibleVideoFile = compatible
                 return [LocalAsset(video: compatible)]
             }
             return [LocalAsset(video: local)]
@@ -217,7 +261,7 @@ final class DownloadModel: ObservableObject {
         var result: [LocalAsset] = []
         for (index, photo) in photos.enumerated() {
             try Task.checkCancellation()
-            status = "正在处理第 \(index + 1) / \(photos.count) 张图片…"
+            status = "正在下载 \(index + 1) / \(photos.count)…"
             let photoKey = "photo:\(photo.id)"
             let still: URL
             if let cached = fileCache[photoKey], usable(cached) { still = cached }
@@ -240,18 +284,45 @@ final class DownloadModel: ObservableObject {
             if photoMode == .components {
                 result.append(LocalAsset(photo: still, video: motion))
             } else {
-                status = "正在合成第 \(index + 1) 张实况照片…"
+                status = "正在合成实况 \(index + 1) / \(photos.count)…"
                 let pair: LivePhotoFiles
                 if let cached = liveCache[motionKey], usable(cached.photoURL), usable(cached.pairedVideoURL) { pair = cached }
                 else {
                     do { pair = try await LivePhotoBuilder.build(photo: still, video: motion, in: folder) }
                     catch is CancellationError { throw CancellationError() }
-                    catch { throw AppError.message("第 \(photo.id + 1) 张实况合成失败。可选择“图片＋独立视频”保留完整素材后再次保存。") }
+                    catch { throw AppError.message("第 \(photo.id + 1) 张实况合成失败。可改用“图＋视频”方式保存。") }
                     liveCache[motionKey] = pair
                 }
                 result.append(LocalAsset(photo: pair.photoURL, pairedVideo: pair.pairedVideoURL))
             }
         }
         return result
+    }
+}
+
+/// Local identifiers of Photos items saved by this app, so cleanup never touches anything else.
+enum SavedAssets {
+    private static let key = "savedAssetIdentifiers"
+
+    static func load() -> [String] { UserDefaults.standard.stringArray(forKey: key) ?? [] }
+
+    static func append(_ identifiers: [String]) {
+        guard !identifiers.isEmpty else { return }
+        var current = load()
+        for id in identifiers where !current.contains(id) { current.append(id) }
+        UserDefaults.standard.set(current, forKey: key)
+    }
+
+    static func remove(_ identifiers: [String]) {
+        let drop = Set(identifiers)
+        UserDefaults.standard.set(load().filter { !drop.contains($0) }, forKey: key)
+    }
+
+    /// Collects placeholder identifiers inside a Photos change block (which runs off the main actor).
+    final class Collector: @unchecked Sendable {
+        private let lock = NSLock()
+        private var values: [String] = []
+        func add(_ id: String?) { guard let id else { return }; lock.lock(); values.append(id); lock.unlock() }
+        var identifiers: [String] { lock.lock(); defer { lock.unlock() }; return values }
     }
 }

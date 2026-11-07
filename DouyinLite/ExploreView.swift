@@ -79,7 +79,7 @@ private struct ExploreQueryView: View {
                 Text(endpoint.summary)
                     .foregroundStyle(.secondary)
                 if !billing.hasAPIKey {
-                    Label("请先在设置中填写 API Key。", systemImage: "key")
+                    Label("请先在「我的」中配置 API Key。", systemImage: "key")
                         .font(.subheadline)
                 }
             }
@@ -117,6 +117,7 @@ private struct ExploreQueryView: View {
                     execute(values, isNextPage: false)
                 } label: {
                     Label(result == nil ? "查询" : "重新查询", systemImage: "magnifyingglass")
+                        .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
                 }
                 .disabled(busy || !billing.hasAPIKey)
@@ -129,8 +130,6 @@ private struct ExploreQueryView: View {
                     }
                     .font(.subheadline)
                 }
-            } footer: {
-                Text("每次查询都会先核对价格；收费请求确认后才会发送。")
             }
 
             if let errorMessage {
@@ -150,6 +149,7 @@ private struct ExploreQueryView: View {
         .navigationBarTitleDisplayMode(.inline)
         .scrollDismissesKeyboard(.interactively)
         .onDisappear { queryTask?.cancel() }
+        .toast($copiedLabel)
         .fileExporter(isPresented: $exportingRawJSON,
                       document: ExploreJSONDocument(data: result?.rawJSON ?? Data()),
                       contentType: .json,
@@ -180,11 +180,6 @@ private struct ExploreQueryView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            if let copiedLabel {
-                Label("已复制\(copiedLabel)", systemImage: "checkmark")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
         }
 
         ForEach(result.sections) { section in
@@ -205,7 +200,7 @@ private struct ExploreQueryView: View {
                 }
                 .disabled(busy || !billing.hasAPIKey)
             } footer: {
-                Text("沿用本次查询条件。下一页是一次新的请求，费用单独确认。")
+                Text("沿用本次条件，费用单独确认。")
             }
         } else if result.hasMore == false {
             Section {
@@ -278,7 +273,7 @@ private struct ExploreQueryView: View {
                     if item.label.contains("ID") || item.label.contains("标识") || item.label.contains("抖音号") || item.label == "短号" {
                         Button {
                             UIPasteboard.general.string = item.value
-                            copiedLabel = item.label
+                            copiedLabel = "已复制\(item.label)"
                         } label: {
                             Image(systemName: "doc.on.doc")
                         }

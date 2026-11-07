@@ -2,11 +2,17 @@
 
 English · [简体中文](README.md)
 
-A lightweight native iPhone app for downloading Douyin media and querying Douyin data through TikHub. Built with SwiftUI, with no third-party dependencies or self-hosted backend. The current app version is **2.1**; the app interface is in Simplified Chinese.
+A lightweight native iPhone app for downloading Douyin media and querying Douyin data through TikHub. Built with SwiftUI, with no third-party dependencies or self-hosted backend. The current source version is **2.4 (Build 7)**; the app interface is in Simplified Chinese.
 
 ## Download and install
 
-**2.1 (Build 3)**: [Download unsigned IPA](https://github.com/lazymicezhu/Douyin-download/releases/download/v2.1/DouyinLite-2.1-unsigned.ipa) · [View release](https://github.com/lazymicezhu/Douyin-download/releases/tag/v2.1)
+**Published version 2.1 (Build 3)**: [Download unsigned IPA](https://github.com/lazymicezhu/Douyin-download/releases/download/v2.1/DouyinLite-2.1-unsigned.ipa) · [View release](https://github.com/lazymicezhu/Douyin-download/releases/tag/v2.1)
+
+**Source / local build 2.4 (Build 7)**: Me adds “Clean up saved photos”, which deletes only items DouyinLite saved to Photos (they move to Recently Deleted); export is back to separate image and video files. This version has not been published as a release; build it using the steps below.
+
+**2.3 (Build 6)**: parsing a post no longer shows the charge confirmation (quotes above $0.01 still ask). It also tried sharing Live Photos to other apps as a single item; Douyin did not keep them live, so 2.4 reverts that.
+
+**2.2 (Build 5)**: UI redesign. Tabs are reduced to Download / Explore / Me, with fee history and API key settings moved under Me; pasting a link resolves it immediately; export opens the share sheet in one step; redundant notes are trimmed from result cards, the charge confirmation sheet and fee history.
 
 Requires an iPhone running **iOS 17+**. The IPA is unsigned; sign it with your own certificate and provisioning profile before installation, then configure your own TikHub API Key. See “Install and configure” below for the steps.
 
@@ -53,8 +59,8 @@ This produces `build/Simulator/DouyinLite.app` without launching a simulator. Se
 
 ## Install and configure
 
-1. Download the [unsigned IPA from the release](https://github.com/lazymicezhu/Douyin-download/releases/download/v2.1/DouyinLite-2.1-unsigned.ipa), or build it yourself using the steps above. Import the IPA into a signing tool, such as 全能签, and sign it with a valid certificate and provisioning profile before installation. An unsigned IPA cannot be installed directly; its validity depends on the signing credentials. Alternatively, install from Xcode after configuring signing.
-2. Open **抖取 → 账户 → API Key 与配置文件** (Account → API Key and configuration). Enter your Key manually, or copy it and choose “粘贴并保存” (Paste and Save).
+1. Download the [unsigned IPA from the 2.1 (Build 3) release](https://github.com/lazymicezhu/Douyin-download/releases/download/v2.1/DouyinLite-2.1-unsigned.ipa), or build the current source version, **2.1.1 (Build 4)**, using the steps above. Import the IPA into a signing tool, such as 全能签, and sign it with a valid certificate and provisioning profile before installation. An unsigned IPA cannot be installed directly; its validity depends on the signing credentials. Alternatively, install from Xcode after configuring signing.
+2. Open **抖取 → 我的 → API Key** (Me → API Key). Copy your Key and tap “从剪贴板粘贴” (Paste from clipboard), or enter it manually.
 3. You can also import an `.env` / `.txt` text file containing the following configuration, or paste the full configuration text without removing its prefix:
 
 ```dotenv
@@ -67,7 +73,7 @@ Replace the placeholder with your own Key. Once saved, the Key is stored in the 
 
 ## Usage
 
-1. Paste a full share message or Douyin URL into the Download tab and tap “获取作品” (Fetch Post). Paid requests show a quote and require confirmation before being sent.
+1. Paste a full share message or Douyin URL into the Download tab and tap “解析” (Resolve), or use the Paste button to paste and resolve in one step. Paid requests show a quote and require confirmation before being sent.
 2. Choose a video quality or select photos and a Live Photo save mode, then save to Photos or export files. The first save requests permission to add items to Photos.
 3. “获取原画” (Fetch Original) and “链接失效？重新获取” (Expired Link? Fetch Again) are separate requests with fresh price checks. Repeating the same link in one session normally reuses the existing result.
 

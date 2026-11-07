@@ -31,6 +31,8 @@ final class BillingCenter: ObservableObject {
     private var accountLastSent: Date?
     static let accountPath = "/api/v1/tikhub/user/get_user_info"
     static let usagePath = "/api/v1/tikhub/user/get_user_daily_usage"
+    /// Quotes at or below this are approved without the confirmation sheet when a caller opts in.
+    static let autoApproveLimit = Decimal(string: "0.01")!
 
     init(transport: APITransporting = APITransport(), readKey: @escaping () -> String? = { KeyStore.read() }, history: HistoryStore? = nil) {
         self.transport = transport
@@ -63,7 +65,7 @@ final class BillingCenter: ObservableObject {
 
     /// All business queries use a fresh quote, one approval, and one dispatch.
     /// Reconciliation uses only freshly verified free account endpoints.
-    func perform(_ request: APIRequest) async throws -> Data {
+    func perform(_ request: APIRequest, autoApproveUpTo limit: Decimal? = nil) async throws -> Data {
         guard !isWorking else { throw AppError.message("请等待当前查询完成。") }
         guard let key = readKey() else { throw AppError.message("请先在账户中导入配置或填写 API Key。") }
         isWorking = true
@@ -72,7 +74,7 @@ final class BillingCenter: ObservableObject {
         let price = try await quote(request.path)
         try Task.checkCancellation()
         guard generation == requestGeneration else { throw CancellationError() }
-        if price.amount > 0 {
+        if price.amount > 0, limit.map({ price.amount > $0 }) ?? true {
             try await confirm(ChargePrompt(title: request.title, quote: price))
             try Task.checkCancellation()
             guard price.obtainedAt.timeIntervalSinceNow > -60 else {

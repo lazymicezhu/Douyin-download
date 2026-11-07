@@ -98,7 +98,29 @@ struct BillingTests {
         try await unknownPrices()
         try await balancePolicy()
         try await credentialsAndFailures()
+        try await autoApproval()
         print("\(passed) offline billing checks passed. No network or real credentials used.")
+    }
+
+    private static func autoApproval() async throws {
+        let transport = BillingTransportStub()
+        let billing = BillingCenter(transport: transport, readKey: { "synthetic-test-key" })
+        _ = try await billing.perform(request(), autoApproveUpTo: BillingCenter.autoApproveLimit)
+        let autoCalls = await transport.contentCalls()
+        try check("normal-price parse dispatches without a confirmation prompt",
+                  billing.pendingCharge == nil && autoCalls.count == 1)
+
+        let expensive = BillingTransportStub(contentCost: 0.05)
+        let guarded = BillingCenter(transport: expensive, readKey: { "synthetic-test-key" })
+        let task = Task { try await guarded.perform(request(), autoApproveUpTo: BillingCenter.autoApproveLimit) }
+        let surprise = try await prompt(guarded)
+        let pendingCalls = await expensive.contentCalls()
+        try check("an unexpectedly high quote still requires approval",
+                  surprise.quote.amount > BillingCenter.autoApproveLimit && pendingCalls.isEmpty)
+        guarded.answerCharge(approved: false)
+        _ = try? await task.value
+        let declinedCalls = await expensive.contentCalls()
+        try check("declined high quote sends nothing", declinedCalls.isEmpty)
     }
 
     private static func confirmationAndPagination() async throws {
